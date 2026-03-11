@@ -12,7 +12,7 @@ export function useLogin() {
   const setTokens = useAuthStore((s) => s.setTokens);
 
   return useMutation({
-    mutationFn: async (credentials: { email: string; password: string }) => {
+    mutationFn: async (credentials: { identifier: string; password: string }) => {
       const { data } = await apiClient.post<AuthResponse>("/auth/login", credentials);
       return data;
     },
