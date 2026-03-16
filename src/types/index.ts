@@ -16,7 +16,7 @@ export interface PaginatedResponse<T> {
 
 // Categories
 export interface QuestionCategory {
-  id: number;
+  id: string;
   name: string;
   description: string;
   created_at: string;
@@ -25,7 +25,7 @@ export interface QuestionCategory {
 
 // Difficulties
 export interface QuestionDifficulty {
-  id: number;
+  id: string;
   name: string;
   description: string;
   multiplier: number;
@@ -88,7 +88,7 @@ export interface CreateGymConfig {
   duration_seconds: number;
   time_per_question: number;
   is_active: boolean;
-  category_ids: number[];
+  category_ids: string[];
 }
 
 export interface CreateFormModel {
@@ -98,14 +98,14 @@ export interface CreateFormModel {
   time_per_question: number;
   use_only_own_questions: boolean;
   token_price?: number;
-  category_ids: number[];
-  difficulty_pattern: number[];
+  category_ids: string[];
+  difficulty_pattern: string[];
 }
 
 export interface CreateQuestion {
   content: string;
-  category_id: number;
-  difficulty_id: number;
+  category_id: string;
+  difficulty_id: string;
   is_premium: boolean;
   base_score: number;
   options: { text: string; is_correct: boolean }[];

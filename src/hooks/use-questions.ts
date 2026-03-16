@@ -5,11 +5,47 @@ import apiClient from "@/lib/api-client";
 import type { PaginatedResponse, Question, CreateQuestion } from "@/types";
 import { toast } from "sonner";
 
+type QuestionApiItem = Omit<Question, "category" | "difficulty"> & {
+  category: Omit<Question["category"], "id"> & { id: string | number };
+  difficulty: Omit<Question["difficulty"], "id" | "multiplier"> & {
+    id: string | number;
+    multiplier: string | number;
+  };
+};
+
+type QuestionsApiResponse = Omit<PaginatedResponse<Question>, "items"> & {
+  items?: QuestionApiItem[];
+  questions?: QuestionApiItem[];
+};
+
+function normalizeQuestion(item: QuestionApiItem): Question {
+  return {
+    ...item,
+    category: { ...item.category, id: String(item.category.id) },
+    difficulty: {
+      ...item.difficulty,
+      id: String(item.difficulty.id),
+      multiplier: Number(item.difficulty.multiplier),
+    },
+  };
+}
+
+function normalizeQuestionsResponse(data: QuestionsApiResponse): PaginatedResponse<Question> {
+  const source = data.items ?? data.questions ?? [];
+  return {
+    total: data.total,
+    page: data.page,
+    limit: data.limit,
+    total_pages: data.total_pages,
+    items: source.map(normalizeQuestion),
+  };
+}
+
 interface QuestionFilters {
   page?: number;
   limit?: number;
-  category_id?: number;
-  difficulty_id?: number;
+  category_id?: string;
+  difficulty_id?: string;
 }
 
 export function useQuestions(filters: QuestionFilters = {}) {
@@ -20,8 +56,8 @@ export function useQuestions(filters: QuestionFilters = {}) {
       const params: Record<string, unknown> = { page, limit };
       if (category_id) params.category_id = category_id;
       if (difficulty_id) params.difficulty_id = difficulty_id;
-      const { data } = await apiClient.get<PaginatedResponse<Question>>("/questions", { params });
-      return data;
+      const { data } = await apiClient.get<QuestionsApiResponse>("/questions", { params });
+      return normalizeQuestionsResponse(data);
     },
   });
 }
@@ -44,7 +80,7 @@ export function useCreateQuestion() {
 export function useUpdateQuestion() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...body }: CreateQuestion & { id: number }) => {
+    mutationFn: async ({ id, ...body }: CreateQuestion & { id: string | number }) => {
       const { data } = await apiClient.patch(`/questions/${id}`, body);
       return data;
     },
@@ -59,7 +95,7 @@ export function useUpdateQuestion() {
 export function useDeleteQuestion() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: number) => {
+    mutationFn: async (id: string | number) => {
       await apiClient.delete(`/questions/${id}`);
     },
     onSuccess: () => {

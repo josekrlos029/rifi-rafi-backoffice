@@ -33,8 +33,8 @@ import { Pencil, Trash2, Plus } from "lucide-react";
 
 export default function QuestionsPage() {
   const [page, setPage] = useState(1);
-  const [filterCat, setFilterCat] = useState<number | undefined>();
-  const [filterDiff, setFilterDiff] = useState<number | undefined>();
+  const [filterCat, setFilterCat] = useState<string | undefined>();
+  const [filterDiff, setFilterDiff] = useState<string | undefined>();
 
   const { data, isLoading } = useQuestions({
     page,
@@ -80,8 +80,8 @@ export default function QuestionsPage() {
     setEditing(null);
     reset({
       content: "",
-      category_id: 0,
-      difficulty_id: 0,
+      category_id: "",
+      difficulty_id: "",
       is_premium: false,
       base_score: 10,
       options: [
@@ -170,7 +170,7 @@ export default function QuestionsPage() {
         <Select
           value={filterCat?.toString() ?? "all"}
           onValueChange={(v) => {
-            setFilterCat(v === "all" ? undefined : Number(v));
+            setFilterCat(!v || v === "all" ? undefined : v);
             setPage(1);
           }}
         >
@@ -189,7 +189,7 @@ export default function QuestionsPage() {
         <Select
           value={filterDiff?.toString() ?? "all"}
           onValueChange={(v) => {
-            setFilterDiff(v === "all" ? undefined : Number(v));
+            setFilterDiff(!v || v === "all" ? undefined : v);
             setPage(1);
           }}
         >
@@ -234,8 +234,8 @@ export default function QuestionsPage() {
             <div className="space-y-2">
               <Label>Categoría</Label>
               <Select
-                value={watch("category_id")?.toString() || "0"}
-                onValueChange={(v) => setValue("category_id", Number(v))}
+                value={watch("category_id") || undefined}
+                onValueChange={(v) => setValue("category_id", v ?? "")}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar" />
@@ -255,8 +255,8 @@ export default function QuestionsPage() {
             <div className="space-y-2">
               <Label>Dificultad</Label>
               <Select
-                value={watch("difficulty_id")?.toString() || "0"}
-                onValueChange={(v) => setValue("difficulty_id", Number(v))}
+                value={watch("difficulty_id") || undefined}
+                onValueChange={(v) => setValue("difficulty_id", v ?? "")}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar" />

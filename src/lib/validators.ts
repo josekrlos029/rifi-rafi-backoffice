@@ -27,8 +27,8 @@ const optionSchema = z.object({
 export const questionSchema = z
   .object({
     content: z.string().min(5, "Mínimo 5 caracteres").max(1024),
-    category_id: z.coerce.number().min(1, "Selecciona una categoría"),
-    difficulty_id: z.coerce.number().min(1, "Selecciona una dificultad"),
+    category_id: z.string().min(1, "Selecciona una categoría"),
+    difficulty_id: z.string().min(1, "Selecciona una dificultad"),
     is_premium: z.boolean(),
     base_score: z.coerce.number().min(5, "Mínimo 5"),
     options: z.array(optionSchema).length(4, "Debe haber 4 opciones"),
@@ -39,8 +39,8 @@ export const questionSchema = z
   });
 export type QuestionFormValues = {
   content: string;
-  category_id: number;
-  difficulty_id: number;
+  category_id: string;
+  difficulty_id: string;
   is_premium: boolean;
   base_score: number;
   options: { text: string; is_correct: boolean }[];
@@ -52,7 +52,7 @@ export const gymConfigSchema = z.object({
   duration_seconds: z.coerce.number().min(30).max(3600),
   time_per_question: z.coerce.number().min(5).max(300),
   is_active: z.boolean(),
-  category_ids: z.array(z.number()).min(1, "Selecciona al menos una categoría"),
+  category_ids: z.array(z.string()).min(1, "Selecciona al menos una categoría"),
 });
 export type GymConfigFormValues = {
   name: string;
@@ -60,7 +60,7 @@ export type GymConfigFormValues = {
   duration_seconds: number;
   time_per_question: number;
   is_active: boolean;
-  category_ids: number[];
+  category_ids: string[];
 };
 
 export const formModelSchema = z.object({
@@ -70,8 +70,8 @@ export const formModelSchema = z.object({
   time_per_question: z.coerce.number().min(10).max(300),
   use_only_own_questions: z.boolean(),
   token_price: z.coerce.number().min(0).optional(),
-  category_ids: z.array(z.number()).min(1, "Selecciona al menos una categoría"),
-  difficulty_pattern: z.array(z.number()),
+  category_ids: z.array(z.string()).min(1, "Selecciona al menos una categoría"),
+  difficulty_pattern: z.array(z.string()),
 });
 export type FormModelFormValues = {
   title: string;
@@ -80,6 +80,6 @@ export type FormModelFormValues = {
   time_per_question: number;
   use_only_own_questions: boolean;
   token_price?: number;
-  category_ids: number[];
-  difficulty_pattern: number[];
+  category_ids: string[];
+  difficulty_pattern: string[];
 };

@@ -83,13 +83,13 @@ export default function FormsPage() {
     setFormOpen(true);
   };
 
-  const toggleCategory = (id: number) => {
+  const toggleCategory = (id: string) => {
     const current = watchedCategoryIds;
     const next = current.includes(id) ? current.filter((c) => c !== id) : [...current, id];
     setValue("category_ids", next, { shouldValidate: true });
   };
 
-  const addDifficultyToPattern = (id: number) => {
+  const addDifficultyToPattern = (id: string) => {
     setValue("difficulty_pattern", [...watchedPattern, id]);
   };
 
@@ -115,7 +115,7 @@ export default function FormsPage() {
     }
   };
 
-  const getDifficultyName = (id: number) => difficulties?.find((d) => d.id === id)?.name ?? `#${id}`;
+  const getDifficultyName = (id: string) => difficulties?.find((d) => d.id === id)?.name ?? `#${id}`;
 
   const columns: Column<FormModel>[] = [
     { header: "Título", accessor: "title" },
@@ -239,7 +239,7 @@ export default function FormsPage() {
           <div className="space-y-2">
             <Label>Patrón de Dificultad</Label>
             <div className="flex gap-2">
-              <Select onValueChange={(v) => addDifficultyToPattern(Number(v))}>
+              <Select onValueChange={(v) => addDifficultyToPattern(String(v ?? ""))}>
                 <SelectTrigger className="flex-1">
                   <SelectValue placeholder="Agregar dificultad..." />
                 </SelectTrigger>

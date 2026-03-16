@@ -5,15 +5,46 @@ import apiClient from "@/lib/api-client";
 import type { PaginatedResponse, QuestionDifficulty, CreateDifficulty } from "@/types";
 import { toast } from "sonner";
 
+type DifficultyApiItem = Omit<QuestionDifficulty, "id" | "multiplier"> & {
+  id: string | number;
+  multiplier: string | number;
+};
+
+type DifficultiesApiResponse = Omit<PaginatedResponse<QuestionDifficulty>, "items"> & {
+  items?: DifficultyApiItem[];
+  difficulties?: DifficultyApiItem[];
+};
+
+function normalizeDifficulty(item: DifficultyApiItem): QuestionDifficulty {
+  return {
+    ...item,
+    id: String(item.id),
+    multiplier: Number(item.multiplier),
+  };
+}
+
+function normalizeDifficultiesResponse(
+  data: DifficultiesApiResponse
+): PaginatedResponse<QuestionDifficulty> {
+  const source = data.items ?? data.difficulties ?? [];
+  return {
+    total: data.total,
+    page: data.page,
+    limit: data.limit,
+    total_pages: data.total_pages,
+    items: source.map(normalizeDifficulty),
+  };
+}
+
 export function useDifficulties(page = 1, limit = 10) {
   return useQuery({
     queryKey: ["difficulties", page, limit],
     queryFn: async () => {
-      const { data } = await apiClient.get<PaginatedResponse<QuestionDifficulty>>(
+      const { data } = await apiClient.get<DifficultiesApiResponse>(
         "/questions/difficulties",
         { params: { page, limit } }
       );
-      return data;
+      return normalizeDifficultiesResponse(data);
     },
   });
 }
@@ -22,11 +53,11 @@ export function useAllDifficulties() {
   return useQuery({
     queryKey: ["difficulties", "all"],
     queryFn: async () => {
-      const { data } = await apiClient.get<PaginatedResponse<QuestionDifficulty>>(
+      const { data } = await apiClient.get<DifficultiesApiResponse>(
         "/questions/difficulties",
         { params: { limit: 100 } }
       );
-      return data.items;
+      return normalizeDifficultiesResponse(data).items;
     },
   });
 }
@@ -49,7 +80,7 @@ export function useCreateDifficulty() {
 export function useUpdateDifficulty() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...body }: CreateDifficulty & { id: number }) => {
+    mutationFn: async ({ id, ...body }: CreateDifficulty & { id: string }) => {
       const { data } = await apiClient.patch(`/questions/difficulties/${id}`, body);
       return data;
     },
@@ -64,7 +95,7 @@ export function useUpdateDifficulty() {
 export function useDeleteDifficulty() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: number) => {
+    mutationFn: async (id: string) => {
       await apiClient.delete(`/questions/difficulties/${id}`);
     },
     onSuccess: () => {

@@ -74,7 +74,7 @@ export default function GymConfigsPage() {
     setFormOpen(true);
   };
 
-  const toggleCategory = (id: number) => {
+  const toggleCategory = (id: string) => {
     const current = watchedCategoryIds;
     const next = current.includes(id) ? current.filter((c) => c !== id) : [...current, id];
     setValue("category_ids", next, { shouldValidate: true });
