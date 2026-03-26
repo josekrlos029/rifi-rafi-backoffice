@@ -22,9 +22,12 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useRoleAccess } from "@/hooks/use-role-access";
 import { Pencil, Trash2, Plus } from "lucide-react";
 
 export default function GymConfigsPage() {
+  const { canManageGymConfigs, canMutateManagedResources } = useRoleAccess();
   const [page, setPage] = useState(1);
   const { data, isLoading } = useGymConfigs(page);
   const { data: categories } = useAllCategories();
@@ -49,6 +52,7 @@ export default function GymConfigsPage() {
   const watchedCategoryIds = watch("category_ids") ?? [];
 
   const openCreate = () => {
+    if (!canMutateManagedResources) return;
     setEditing(null);
     reset({
       name: "",
@@ -62,6 +66,7 @@ export default function GymConfigsPage() {
   };
 
   const openEdit = (gc: GymConfig) => {
+    if (!canMutateManagedResources) return;
     setEditing(gc);
     reset({
       name: gc.name,
@@ -81,6 +86,7 @@ export default function GymConfigsPage() {
   };
 
   const onSubmit = (values: GymConfigFormValues) => {
+    if (!canMutateManagedResources) return;
     if (editing) {
       updateMutation.mutate({ id: editing.id, ...values }, { onSuccess: () => setFormOpen(false) });
     } else {
@@ -105,34 +111,67 @@ export default function GymConfigsPage() {
       header: "Categorías",
       accessor: (row) => row.categories?.length ?? 0,
     },
-    {
+  ];
+
+  if (canManageGymConfigs) {
+    columns.push({
       header: "Acciones",
       className: "w-24",
       accessor: (row) => (
         <div className="flex gap-1">
-          <Button variant="ghost" size="icon" onClick={() => openEdit(row)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => openEdit(row)}
+            disabled={!canMutateManagedResources}
+          >
             <Pencil className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(row)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setDeleteTarget(row)}
+            disabled={!canMutateManagedResources}
+          >
             <Trash2 className="h-4 w-4 text-destructive" />
           </Button>
         </div>
       ),
-    },
-  ];
+    });
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Configuraciones del Gimnasio</h1>
-        <Button onClick={openCreate} className="bg-green-600 hover:bg-green-700">
+        <Button
+          onClick={openCreate}
+          className="bg-green-600 hover:bg-green-700"
+          disabled={!canMutateManagedResources}
+        >
           <Plus className="mr-2 h-4 w-4" /> Crear
         </Button>
       </div>
 
+      {!canManageGymConfigs && (
+        <Alert>
+          <AlertDescription>
+            No tienes permisos para administrar configuraciones del gimnasio.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {canManageGymConfigs && !canMutateManagedResources && (
+        <Alert>
+          <AlertDescription>
+            No se detectó company_id en el token. Las mutaciones se bloquean por seguridad.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <DataTable
         columns={columns}
-        data={data?.items ?? []}
+        data={canManageGymConfigs ? data?.items ?? [] : []}
         page={page}
         totalPages={data?.total_pages ?? 1}
         onPageChange={setPage}
@@ -207,7 +246,7 @@ export default function GymConfigsPage() {
             <Button
               type="submit"
               className="bg-green-600 hover:bg-green-700"
-              disabled={createMutation.isPending || updateMutation.isPending}
+              disabled={!canMutateManagedResources || createMutation.isPending || updateMutation.isPending}
             >
               {editing ? "Actualizar" : "Crear"}
             </Button>
@@ -225,7 +264,7 @@ export default function GymConfigsPage() {
             deleteMutation.mutate(deleteTarget.id, { onSuccess: () => setDeleteTarget(null) });
           }
         }}
-        isLoading={deleteMutation.isPending}
+        isLoading={!canMutateManagedResources || deleteMutation.isPending}
       />
     </div>
   );

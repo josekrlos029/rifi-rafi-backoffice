@@ -3,6 +3,12 @@ export interface AuthResponse {
   access_token: string;
   refresh_token: string;
   expires: number;
+  role?: string;
+  user_role?: string;
+  company_id?: string | number | null;
+  companyId?: string | number | null;
+  user_id?: string | number | null;
+  userId?: string | number | null;
 }
 
 // Pagination

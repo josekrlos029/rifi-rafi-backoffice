@@ -1,8 +1,9 @@
 import axios from "axios";
 import { useAuthStore } from "./auth-store";
+import { extractAuthContextFromToken, isBackofficeRole } from "./auth-token";
 
 const apiClient = axios.create({
-  baseURL: "https://rifi-rafi.onrender.com",
+  baseURL: "https://api.rifirafi.com",
   headers: { "Content-Type": "application/json" },
 });
 
@@ -18,6 +19,13 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    const clearSession = () => {
+      useAuthStore.getState().clearTokens();
+      if (typeof window !== "undefined") {
+        document.cookie = "rifi-auth-token=; path=/; max-age=0";
+        window.location.href = "/login";
+      }
+    };
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
@@ -26,25 +34,25 @@ apiClient.interceptors.response.use(
       if (refreshToken) {
         try {
           const { data } = await axios.post(
-            "https://rifi-rafi.onrender.com/auth/refresh",
+            "https://api.rifirafi.com/auth/refresh",
             { refresh_token: refreshToken }
           );
+          const context = extractAuthContextFromToken(data.access_token);
+          if (!isBackofficeRole(context.role)) {
+            clearSession();
+            return Promise.reject(error);
+          }
           useAuthStore.getState().setTokens(data.access_token, data.refresh_token);
+          document.cookie = `rifi-auth-token=${data.access_token}; path=/; max-age=${60 * 60 * 24 * 7}`;
           originalRequest.headers.Authorization = `Bearer ${data.access_token}`;
           return apiClient(originalRequest);
         } catch {
-          useAuthStore.getState().clearTokens();
-          if (typeof window !== "undefined") {
-            window.location.href = "/login";
-          }
+          clearSession();
           return Promise.reject(error);
         }
       }
 
-      useAuthStore.getState().clearTokens();
-      if (typeof window !== "undefined") {
-        window.location.href = "/login";
-      }
+      clearSession();
     }
 
     return Promise.reject(error);

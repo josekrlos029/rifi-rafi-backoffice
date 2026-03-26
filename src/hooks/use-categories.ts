@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
+import { useAuthStore } from "@/lib/auth-store";
 import type { PaginatedResponse, QuestionCategory, CreateCategory } from "@/types";
 import { toast } from "sonner";
 
@@ -21,8 +22,13 @@ function normalizeCategoriesResponse(data: CategoriesApiResponse): PaginatedResp
 }
 
 export function useCategories(page = 1, limit = 10) {
+  const role = useAuthStore((s) => s.role);
+  const companyId = useAuthStore((s) => s.companyId);
+  const isEnabled = role === "ADMIN" || role === "COMPANY";
+
   return useQuery({
-    queryKey: ["categories", page, limit],
+    queryKey: ["categories", page, limit, role, companyId],
+    enabled: isEnabled,
     queryFn: async () => {
       const { data } = await apiClient.get<CategoriesApiResponse>(
         "/questions/categories",
@@ -34,8 +40,13 @@ export function useCategories(page = 1, limit = 10) {
 }
 
 export function useAllCategories() {
+  const role = useAuthStore((s) => s.role);
+  const companyId = useAuthStore((s) => s.companyId);
+  const isEnabled = role === "ADMIN" || role === "COMPANY";
+
   return useQuery({
-    queryKey: ["categories", "all"],
+    queryKey: ["categories", "all", role, companyId],
+    enabled: isEnabled,
     queryFn: async () => {
       const { data } = await apiClient.get<CategoriesApiResponse>(
         "/questions/categories",
@@ -48,8 +59,12 @@ export function useAllCategories() {
 
 export function useCreateCategory() {
   const qc = useQueryClient();
+  const role = useAuthStore((s) => s.role);
   return useMutation({
     mutationFn: async (body: CreateCategory) => {
+      if (role !== "ADMIN") {
+        throw new Error("FORBIDDEN_ROLE");
+      }
       const { data } = await apiClient.post("/questions/categories", body);
       return data;
     },
@@ -57,14 +72,24 @@ export function useCreateCategory() {
       qc.invalidateQueries({ queryKey: ["categories"] });
       toast.success("Categoría creada");
     },
-    onError: () => toast.error("Error al crear categoría"),
+    onError: (error) => {
+      if (error instanceof Error && error.message === "FORBIDDEN_ROLE") {
+        toast.error("Solo ADMIN puede crear categorías");
+        return;
+      }
+      toast.error("Error al crear categoría");
+    },
   });
 }
 
 export function useUpdateCategory() {
   const qc = useQueryClient();
+  const role = useAuthStore((s) => s.role);
   return useMutation({
     mutationFn: async ({ id, ...body }: CreateCategory & { id: string }) => {
+      if (role !== "ADMIN") {
+        throw new Error("FORBIDDEN_ROLE");
+      }
       const { data } = await apiClient.patch(`/questions/categories/${id}`, body);
       return data;
     },
@@ -72,20 +97,36 @@ export function useUpdateCategory() {
       qc.invalidateQueries({ queryKey: ["categories"] });
       toast.success("Categoría actualizada");
     },
-    onError: () => toast.error("Error al actualizar categoría"),
+    onError: (error) => {
+      if (error instanceof Error && error.message === "FORBIDDEN_ROLE") {
+        toast.error("Solo ADMIN puede actualizar categorías");
+        return;
+      }
+      toast.error("Error al actualizar categoría");
+    },
   });
 }
 
 export function useDeleteCategory() {
   const qc = useQueryClient();
+  const role = useAuthStore((s) => s.role);
   return useMutation({
     mutationFn: async (id: string) => {
+      if (role !== "ADMIN") {
+        throw new Error("FORBIDDEN_ROLE");
+      }
       await apiClient.delete(`/questions/categories/${id}`);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["categories"] });
       toast.success("Categoría eliminada");
     },
-    onError: () => toast.error("Error al eliminar categoría"),
+    onError: (error) => {
+      if (error instanceof Error && error.message === "FORBIDDEN_ROLE") {
+        toast.error("Solo ADMIN puede eliminar categorías");
+        return;
+      }
+      toast.error("Error al eliminar categoría");
+    },
   });
 }

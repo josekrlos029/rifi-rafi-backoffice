@@ -21,6 +21,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useRoleAccess } from "@/hooks/use-role-access";
 import {
   Select,
   SelectContent,
@@ -32,6 +34,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Pencil, Trash2, Plus } from "lucide-react";
 
 export default function QuestionsPage() {
+  const { canManageQuestions, canMutateManagedResources } = useRoleAccess();
   const [page, setPage] = useState(1);
   const [filterCat, setFilterCat] = useState<string | undefined>();
   const [filterDiff, setFilterDiff] = useState<string | undefined>();
@@ -77,6 +80,7 @@ export default function QuestionsPage() {
   const watchedOptions = watch("options");
 
   const openCreate = () => {
+    if (!canMutateManagedResources) return;
     setEditing(null);
     reset({
       content: "",
@@ -95,6 +99,7 @@ export default function QuestionsPage() {
   };
 
   const openEdit = (q: Question) => {
+    if (!canMutateManagedResources) return;
     setEditing(q);
     reset({
       content: q.content,
@@ -114,6 +119,7 @@ export default function QuestionsPage() {
   };
 
   const onSubmit = (values: QuestionFormValues) => {
+    if (!canMutateManagedResources) return;
     if (editing) {
       updateMutation.mutate({ id: editing.id, ...values }, { onSuccess: () => setFormOpen(false) });
     } else {
@@ -140,30 +146,61 @@ export default function QuestionsPage() {
         ),
     },
     { header: "Puntaje", accessor: (row) => row.base_score },
-    {
+  ];
+
+  if (canManageQuestions) {
+    columns.push({
       header: "Acciones",
       className: "w-24",
       accessor: (row) => (
         <div className="flex gap-1">
-          <Button variant="ghost" size="icon" onClick={() => openEdit(row)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => openEdit(row)}
+            disabled={!canMutateManagedResources}
+          >
             <Pencil className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(row)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setDeleteTarget(row)}
+            disabled={!canMutateManagedResources}
+          >
             <Trash2 className="h-4 w-4 text-destructive" />
           </Button>
         </div>
       ),
-    },
-  ];
+    });
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Preguntas</h1>
-        <Button onClick={openCreate} className="bg-green-600 hover:bg-green-700">
+        <Button
+          onClick={openCreate}
+          className="bg-green-600 hover:bg-green-700"
+          disabled={!canMutateManagedResources}
+        >
           <Plus className="mr-2 h-4 w-4" /> Crear
         </Button>
       </div>
+
+      {!canManageQuestions && (
+        <Alert>
+          <AlertDescription>No tienes permisos para administrar preguntas.</AlertDescription>
+        </Alert>
+      )}
+
+      {canManageQuestions && !canMutateManagedResources && (
+        <Alert>
+          <AlertDescription>
+            No se detectó company_id en el token. Las mutaciones se bloquean por seguridad.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Filters */}
       <div className="flex gap-4">
@@ -209,7 +246,7 @@ export default function QuestionsPage() {
 
       <DataTable
         columns={columns}
-        data={data?.items ?? []}
+        data={canManageQuestions ? data?.items ?? [] : []}
         page={page}
         totalPages={data?.total_pages ?? 1}
         onPageChange={setPage}
@@ -322,7 +359,7 @@ export default function QuestionsPage() {
             <Button
               type="submit"
               className="bg-green-600 hover:bg-green-700"
-              disabled={createMutation.isPending || updateMutation.isPending}
+              disabled={!canMutateManagedResources || createMutation.isPending || updateMutation.isPending}
             >
               {editing ? "Actualizar" : "Crear"}
             </Button>
@@ -340,7 +377,7 @@ export default function QuestionsPage() {
             deleteMutation.mutate(deleteTarget.id, { onSuccess: () => setDeleteTarget(null) });
           }
         }}
-        isLoading={deleteMutation.isPending}
+        isLoading={!canMutateManagedResources || deleteMutation.isPending}
       />
     </div>
   );

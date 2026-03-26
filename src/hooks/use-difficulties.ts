@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
+import { useAuthStore } from "@/lib/auth-store";
 import type { PaginatedResponse, QuestionDifficulty, CreateDifficulty } from "@/types";
 import { toast } from "sonner";
 
@@ -37,8 +38,13 @@ function normalizeDifficultiesResponse(
 }
 
 export function useDifficulties(page = 1, limit = 10) {
+  const role = useAuthStore((s) => s.role);
+  const companyId = useAuthStore((s) => s.companyId);
+  const isEnabled = role === "ADMIN" || role === "COMPANY";
+
   return useQuery({
-    queryKey: ["difficulties", page, limit],
+    queryKey: ["difficulties", page, limit, role, companyId],
+    enabled: isEnabled,
     queryFn: async () => {
       const { data } = await apiClient.get<DifficultiesApiResponse>(
         "/questions/difficulties",
@@ -50,8 +56,13 @@ export function useDifficulties(page = 1, limit = 10) {
 }
 
 export function useAllDifficulties() {
+  const role = useAuthStore((s) => s.role);
+  const companyId = useAuthStore((s) => s.companyId);
+  const isEnabled = role === "ADMIN" || role === "COMPANY";
+
   return useQuery({
-    queryKey: ["difficulties", "all"],
+    queryKey: ["difficulties", "all", role, companyId],
+    enabled: isEnabled,
     queryFn: async () => {
       const { data } = await apiClient.get<DifficultiesApiResponse>(
         "/questions/difficulties",
@@ -64,8 +75,12 @@ export function useAllDifficulties() {
 
 export function useCreateDifficulty() {
   const qc = useQueryClient();
+  const role = useAuthStore((s) => s.role);
   return useMutation({
     mutationFn: async (body: CreateDifficulty) => {
+      if (role !== "ADMIN") {
+        throw new Error("FORBIDDEN_ROLE");
+      }
       const { data } = await apiClient.post("/questions/difficulties", body);
       return data;
     },
@@ -73,14 +88,24 @@ export function useCreateDifficulty() {
       qc.invalidateQueries({ queryKey: ["difficulties"] });
       toast.success("Dificultad creada");
     },
-    onError: () => toast.error("Error al crear dificultad"),
+    onError: (error) => {
+      if (error instanceof Error && error.message === "FORBIDDEN_ROLE") {
+        toast.error("Solo ADMIN puede crear dificultades");
+        return;
+      }
+      toast.error("Error al crear dificultad");
+    },
   });
 }
 
 export function useUpdateDifficulty() {
   const qc = useQueryClient();
+  const role = useAuthStore((s) => s.role);
   return useMutation({
     mutationFn: async ({ id, ...body }: CreateDifficulty & { id: string }) => {
+      if (role !== "ADMIN") {
+        throw new Error("FORBIDDEN_ROLE");
+      }
       const { data } = await apiClient.patch(`/questions/difficulties/${id}`, body);
       return data;
     },
@@ -88,20 +113,36 @@ export function useUpdateDifficulty() {
       qc.invalidateQueries({ queryKey: ["difficulties"] });
       toast.success("Dificultad actualizada");
     },
-    onError: () => toast.error("Error al actualizar dificultad"),
+    onError: (error) => {
+      if (error instanceof Error && error.message === "FORBIDDEN_ROLE") {
+        toast.error("Solo ADMIN puede actualizar dificultades");
+        return;
+      }
+      toast.error("Error al actualizar dificultad");
+    },
   });
 }
 
 export function useDeleteDifficulty() {
   const qc = useQueryClient();
+  const role = useAuthStore((s) => s.role);
   return useMutation({
     mutationFn: async (id: string) => {
+      if (role !== "ADMIN") {
+        throw new Error("FORBIDDEN_ROLE");
+      }
       await apiClient.delete(`/questions/difficulties/${id}`);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["difficulties"] });
       toast.success("Dificultad eliminada");
     },
-    onError: () => toast.error("Error al eliminar dificultad"),
+    onError: (error) => {
+      if (error instanceof Error && error.message === "FORBIDDEN_ROLE") {
+        toast.error("Solo ADMIN puede eliminar dificultades");
+        return;
+      }
+      toast.error("Error al eliminar dificultad");
+    },
   });
 }

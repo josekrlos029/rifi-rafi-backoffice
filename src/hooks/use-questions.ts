@@ -2,6 +2,9 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
+import { useAuthStore } from "@/lib/auth-store";
+import { applyCompanyOwnershipFilter } from "@/lib/ownership-guards";
+import { buildRoleScopedParams } from "@/lib/role-scope";
 import type { PaginatedResponse, Question, CreateQuestion } from "@/types";
 import { toast } from "sonner";
 
@@ -50,22 +53,46 @@ interface QuestionFilters {
 
 export function useQuestions(filters: QuestionFilters = {}) {
   const { page = 1, limit = 10, category_id, difficulty_id } = filters;
+  const role = useAuthStore((s) => s.role);
+  const companyId = useAuthStore((s) => s.companyId);
+  const isEnabled = role === "ADMIN" || role === "COMPANY";
+
   return useQuery({
-    queryKey: ["questions", page, limit, category_id, difficulty_id],
+    queryKey: ["questions", page, limit, category_id, difficulty_id, role, companyId],
+    enabled: isEnabled,
     queryFn: async () => {
       const params: Record<string, unknown> = { page, limit };
       if (category_id) params.category_id = category_id;
       if (difficulty_id) params.difficulty_id = difficulty_id;
-      const { data } = await apiClient.get<QuestionsApiResponse>("/questions", { params });
-      return normalizeQuestionsResponse(data);
+      const scopedParams = buildRoleScopedParams(params, { role, companyId });
+      const { data } = await apiClient.get<QuestionsApiResponse>("/questions", {
+        params: scopedParams,
+      });
+      const normalized = normalizeQuestionsResponse(data);
+      return {
+        ...normalized,
+        items: applyCompanyOwnershipFilter(normalized.items, {
+          role,
+          companyId,
+          allowGlobalWhenCompanyMissing: true,
+        }),
+      };
     },
   });
 }
 
 export function useCreateQuestion() {
   const qc = useQueryClient();
+  const role = useAuthStore((s) => s.role);
+  const companyId = useAuthStore((s) => s.companyId);
   return useMutation({
     mutationFn: async (body: CreateQuestion) => {
+      if (role === "UNKNOWN" || role === "USER") {
+        throw new Error("FORBIDDEN_ROLE");
+      }
+      if (role === "COMPANY" && !companyId) {
+        throw new Error("MISSING_COMPANY_SCOPE");
+      }
       const { data } = await apiClient.post("/questions", body);
       return data;
     },
@@ -73,14 +100,32 @@ export function useCreateQuestion() {
       qc.invalidateQueries({ queryKey: ["questions"] });
       toast.success("Pregunta creada");
     },
-    onError: () => toast.error("Error al crear pregunta"),
+    onError: (error) => {
+      if (error instanceof Error && error.message === "FORBIDDEN_ROLE") {
+        toast.error("No tienes permisos para crear preguntas");
+        return;
+      }
+      if (error instanceof Error && error.message === "MISSING_COMPANY_SCOPE") {
+        toast.error("No se detectó company_id en tu sesión");
+        return;
+      }
+      toast.error("Error al crear pregunta");
+    },
   });
 }
 
 export function useUpdateQuestion() {
   const qc = useQueryClient();
+  const role = useAuthStore((s) => s.role);
+  const companyId = useAuthStore((s) => s.companyId);
   return useMutation({
     mutationFn: async ({ id, ...body }: CreateQuestion & { id: string | number }) => {
+      if (role === "UNKNOWN" || role === "USER") {
+        throw new Error("FORBIDDEN_ROLE");
+      }
+      if (role === "COMPANY" && !companyId) {
+        throw new Error("MISSING_COMPANY_SCOPE");
+      }
       const { data } = await apiClient.patch(`/questions/${id}`, body);
       return data;
     },
@@ -88,20 +133,48 @@ export function useUpdateQuestion() {
       qc.invalidateQueries({ queryKey: ["questions"] });
       toast.success("Pregunta actualizada");
     },
-    onError: () => toast.error("Error al actualizar pregunta"),
+    onError: (error) => {
+      if (error instanceof Error && error.message === "FORBIDDEN_ROLE") {
+        toast.error("No tienes permisos para actualizar preguntas");
+        return;
+      }
+      if (error instanceof Error && error.message === "MISSING_COMPANY_SCOPE") {
+        toast.error("No se detectó company_id en tu sesión");
+        return;
+      }
+      toast.error("Error al actualizar pregunta");
+    },
   });
 }
 
 export function useDeleteQuestion() {
   const qc = useQueryClient();
+  const role = useAuthStore((s) => s.role);
+  const companyId = useAuthStore((s) => s.companyId);
   return useMutation({
     mutationFn: async (id: string | number) => {
+      if (role === "UNKNOWN" || role === "USER") {
+        throw new Error("FORBIDDEN_ROLE");
+      }
+      if (role === "COMPANY" && !companyId) {
+        throw new Error("MISSING_COMPANY_SCOPE");
+      }
       await apiClient.delete(`/questions/${id}`);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["questions"] });
       toast.success("Pregunta eliminada");
     },
-    onError: () => toast.error("Error al eliminar pregunta"),
+    onError: (error) => {
+      if (error instanceof Error && error.message === "FORBIDDEN_ROLE") {
+        toast.error("No tienes permisos para eliminar preguntas");
+        return;
+      }
+      if (error instanceof Error && error.message === "MISSING_COMPANY_SCOPE") {
+        toast.error("No se detectó company_id en tu sesión");
+        return;
+      }
+      toast.error("Error al eliminar pregunta");
+    },
   });
 }
