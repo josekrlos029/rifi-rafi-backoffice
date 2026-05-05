@@ -6,7 +6,7 @@ export interface AuthContext {
   userId: string | null;
 }
 
-const ROLE_CLAIM_KEYS = ["role", "user_role", "userRole", "type", "authorities"] as const;
+const ROLE_CLAIM_KEYS = ["role", "user_role", "userRole", "type", "authorities", "roles"] as const;
 
 const COMPANY_ID_CLAIM_KEYS = [
   "company_id",
@@ -49,20 +49,42 @@ function normalizeRole(value: unknown): AuthRole {
   return "UNKNOWN";
 }
 
+function normalizeRoleValue(value: unknown): AuthRole {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const record = value as Record<string, unknown>;
+    return normalizeRole(record.name ?? record.role ?? record.code);
+  }
+  return normalizeRole(value);
+}
+
+function pickHighestPrivilegeRole(roles: AuthRole[]): AuthRole {
+  if (roles.includes("ADMIN")) return "ADMIN";
+  if (roles.includes("COMPANY")) return "COMPANY";
+  if (roles.includes("USER")) return "USER";
+  return "UNKNOWN";
+}
+
 function extractRole(payload: Record<string, unknown>): AuthRole {
   for (const key of ROLE_CLAIM_KEYS) {
     const value = payload[key];
     if (!value) continue;
 
     if (Array.isArray(value)) {
+      const foundRoles: AuthRole[] = [];
       for (const roleValue of value) {
-        const role = normalizeRole(roleValue);
-        if (role !== "UNKNOWN") return role;
+        const role = normalizeRoleValue(roleValue);
+        if (role !== "UNKNOWN") {
+          foundRoles.push(role);
+        }
+      }
+      const prioritizedRole = pickHighestPrivilegeRole(foundRoles);
+      if (prioritizedRole !== "UNKNOWN") {
+        return prioritizedRole;
       }
       continue;
     }
 
-    const role = normalizeRole(value);
+    const role = normalizeRoleValue(value);
     if (role !== "UNKNOWN") return role;
   }
 

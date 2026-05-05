@@ -4,6 +4,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/auth-store";
 import { isBackofficeRole } from "@/lib/auth-token";
+import { clearAuthCookies } from "@/lib/auth-cookie";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export function BackofficeGuard({ children }: { children: React.ReactNode }) {
@@ -35,7 +36,7 @@ export function BackofficeGuard({ children }: { children: React.ReactNode }) {
     if (hasBackofficeAccess) return;
 
     clearTokens();
-    document.cookie = "rifi-auth-token=; path=/; max-age=0";
+    clearAuthCookies();
     if (pathname !== "/login") {
       router.replace("/login");
     }

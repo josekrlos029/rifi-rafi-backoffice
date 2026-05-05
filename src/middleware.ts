@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import {
   extractAuthContextFromToken,
+  type AuthRole,
   isBackofficeRole,
   isTokenExpired,
 } from "@/lib/auth-token";
@@ -13,7 +14,11 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const loginUrl = new URL("/login", request.url);
   const token = request.cookies.get("rifi-auth-token")?.value;
+  const roleCookieValue = request.cookies.get("rifi-auth-role")?.value;
+  const roleCookie: AuthRole =
+    roleCookieValue === "ADMIN" || roleCookieValue === "COMPANY" ? roleCookieValue : "UNKNOWN";
   const authContext = extractAuthContextFromToken(token);
+  const effectiveRole = authContext.role !== "UNKNOWN" ? authContext.role : roleCookie;
 
   // Allow login page and static assets
   if (
@@ -25,7 +30,7 @@ export function middleware(request: NextRequest) {
       pathname === "/login" &&
       token &&
       !isTokenExpired(token) &&
-      isBackofficeRole(authContext.role)
+      isBackofficeRole(effectiveRole)
     ) {
       const nextUrl = new URL(DEFAULT_AUTH_REDIRECT, request.url);
       return NextResponse.redirect(nextUrl);
@@ -34,23 +39,27 @@ export function middleware(request: NextRequest) {
   }
 
   if (!token) {
-    return NextResponse.redirect(loginUrl);
+    const response = NextResponse.redirect(loginUrl);
+    response.cookies.delete("rifi-auth-role");
+    return response;
   }
 
   if (isTokenExpired(token)) {
     const response = NextResponse.redirect(loginUrl);
     response.cookies.delete("rifi-auth-token");
+    response.cookies.delete("rifi-auth-role");
     return response;
   }
 
-  if (!isBackofficeRole(authContext.role)) {
+  if (!isBackofficeRole(effectiveRole)) {
     const response = NextResponse.redirect(loginUrl);
     response.cookies.delete("rifi-auth-token");
+    response.cookies.delete("rifi-auth-role");
     return response;
   }
 
   if (
-    authContext.role === "COMPANY" &&
+    effectiveRole === "COMPANY" &&
     ADMIN_ONLY_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))
   ) {
     const redirectUrl = new URL(DEFAULT_AUTH_REDIRECT, request.url);

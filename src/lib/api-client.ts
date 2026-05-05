@@ -1,6 +1,7 @@
 import axios from "axios";
 import { useAuthStore } from "./auth-store";
 import { extractAuthContextFromToken, isBackofficeRole } from "./auth-token";
+import { clearAuthCookies, setAuthCookies } from "./auth-cookie";
 
 const apiClient = axios.create({
   baseURL: "https://api.rifirafi.com",
@@ -22,7 +23,7 @@ apiClient.interceptors.response.use(
     const clearSession = () => {
       useAuthStore.getState().clearTokens();
       if (typeof window !== "undefined") {
-        document.cookie = "rifi-auth-token=; path=/; max-age=0";
+        clearAuthCookies();
         window.location.href = "/login";
       }
     };
@@ -43,7 +44,7 @@ apiClient.interceptors.response.use(
             return Promise.reject(error);
           }
           useAuthStore.getState().setTokens(data.access_token, data.refresh_token);
-          document.cookie = `rifi-auth-token=${data.access_token}; path=/; max-age=${60 * 60 * 24 * 7}`;
+          setAuthCookies(data.access_token, context.role);
           originalRequest.headers.Authorization = `Bearer ${data.access_token}`;
           return apiClient(originalRequest);
         } catch {
